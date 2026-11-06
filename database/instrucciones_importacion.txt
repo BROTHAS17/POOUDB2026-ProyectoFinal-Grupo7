@@ -1,0 +1,12 @@
+IMPORTAR LA BASE DE DATOS EN MYSQL WORKBENCH
+
+1. Abrir MySQL Workbench.
+2. Conectarse al servidor local de MySQL.
+3. Ir a File > Open SQL Script.
+4. Seleccionar el archivo banco_academico_udb.sql.
+5. Presionar el botón de ejecución con el ícono de rayo.
+6. En el panel Schemas, actualizar la lista de bases de datos.
+7. Verificar que aparezca banco_academico_udb.
+8. Abrir las tablas clientes y cuentas para comprobar los datos de prueba.
+
+El archivo debe ejecutarse en un servidor donde no exista una base de datos con ese mismo nombre.
