@@ -1,0 +1,67 @@
+DICCIONARIO DE DATOS
+
+Base de datos: banco_academico_udb
+
+Tabla: clientes
+
+id_cliente
+Tipo: INT UNSIGNED AUTO_INCREMENT
+Uso: Identificador interno del cliente. Se genera automáticamente.
+
+codigo_cliente
+Tipo: VARCHAR(15)
+Uso: Código único del cliente.
+
+dui
+Tipo: CHAR(10)
+Uso: DUI del cliente con formato 00000000-0. No se repite.
+
+nombre_completo
+Tipo: VARCHAR(120)
+Uso: Nombre y apellidos del cliente.
+
+telefono
+Tipo: VARCHAR(20)
+Uso: Número de teléfono guardado como texto.
+
+correo
+Tipo: VARCHAR(120)
+Uso: Correo electrónico del cliente.
+
+direccion
+Tipo: VARCHAR(200)
+Uso: Dirección del cliente.
+
+estado
+Tipo: ENUM('ACTIVO', 'INACTIVO', 'BLOQUEADO')
+Uso: Estado actual del cliente. El valor inicial es ACTIVO.
+
+Tabla: cuentas
+
+id_cuenta
+Tipo: INT UNSIGNED AUTO_INCREMENT
+Uso: Identificador interno de la cuenta. Se genera automáticamente.
+
+numero_cuenta
+Tipo: VARCHAR(20)
+Uso: Número único de la cuenta.
+
+tipo_cuenta
+Tipo: ENUM('AHORRO', 'CORRIENTE')
+Uso: Tipo de cuenta bancaria.
+
+fecha_apertura
+Tipo: DATE
+Uso: Fecha en que se crea la cuenta.
+
+saldo
+Tipo: DECIMAL(12,2)
+Uso: Saldo de la cuenta. El valor inicial es 0.00.
+
+estado
+Tipo: ENUM('ACTIVA', 'INACTIVA', 'BLOQUEADA')
+Uso: Estado actual de la cuenta. El valor inicial es ACTIVA.
+
+id_cliente
+Tipo: INT UNSIGNED
+Uso: Identificador del cliente dueño de la cuenta. Está relacionado con clientes.id_cliente.
