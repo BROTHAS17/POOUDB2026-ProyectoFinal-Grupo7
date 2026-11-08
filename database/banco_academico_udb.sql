@@ -4,6 +4,15 @@ COLLATE utf8mb4_unicode_ci;
 
 USE banco_academico_udb;
 
+-- 1. Crear el usuario general (reemplaza 'udb_general' y 'ClaveUDB2026*' si lo deseas)
+CREATE USER 'udb_general'@'localhost' IDENTIFIED BY 'ClaveUDB2026*';
+
+-- 2. Otorgar todos los permisos necesarios únicamente sobre la base de datos del proyecto
+GRANT ALL PRIVILEGES ON banco_academico_udb.* TO 'udb_general'@'localhost';
+
+-- 3. Refrescar los privilegios para que los cambios surtan efecto de inmediato
+FLUSH PRIVILEGES;
+
 CREATE TABLE clientes (
     id_cliente INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     codigo_cliente VARCHAR(15) NOT NULL UNIQUE,
