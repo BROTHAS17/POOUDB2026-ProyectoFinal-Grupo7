@@ -3,7 +3,6 @@ package dao;
 import conexion.Conexion;
 import modelo.CuentaBancaria;
 
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -21,8 +20,8 @@ public class CuentaDAO {
             ps.setString(1, c.getNumeroCuenta().trim());
             ps.setString(2, c.getTipoCuenta().trim());
             ps.setDate(3, c.getFechaApertura());
-            ps.setBigDecimal(4, c.getSaldo()); // Siempre será 0.00 al inicio
-            ps.setString(5, c.getEstado().trim()); // Siempre será "ACTIVA" al inicio
+            ps.setBigDecimal(4, c.getSaldo());
+            ps.setString(5, c.getEstado().trim());
             ps.setInt(6, c.getIdCliente());
             return ps.executeUpdate() > 0;
         }

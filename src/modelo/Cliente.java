@@ -1,8 +1,5 @@
 package modelo;
 
-/**
- * Clase de modelo que representa la entidad Cliente.
- */
 public class Cliente {
 
     private int idCliente;

@@ -1,0 +1,9 @@
+out/
+*.class
+.idea/workspace.xml
+.idea/shelf/
+nbproject/
+build/
+dist/
+build.xml
+manifest.mf

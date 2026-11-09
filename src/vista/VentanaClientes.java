@@ -12,9 +12,6 @@ import java.awt.event.MouseEvent;
 import java.sql.SQLException;
 import java.util.List;
 
-/**
- * Interfaz de usuario Swing para administrar la tabla clientes.
- */
 public class VentanaClientes extends JFrame {
 
     private JTextField txtIdCliente;
@@ -45,11 +42,10 @@ public class VentanaClientes extends JFrame {
     private void initComponents() {
         setTitle("Banco Académico UDB - Administración de Clientes");
         setSize(950, 600);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
-        // Panel de Formulario
         JPanel panelFormulario = new JPanel(new GridLayout(8, 2, 5, 5));
         panelFormulario.setBorder(BorderFactory.createTitledBorder("Datos del Cliente"));
 
@@ -81,7 +77,6 @@ public class VentanaClientes extends JFrame {
         panelFormulario.add(new JLabel(" Estado:"));
         panelFormulario.add(cbxEstado);
 
-        // Panel de Botones
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         btnRegistrar = new JButton("Registrar");
         btnListar = new JButton("Listar");
@@ -93,12 +88,10 @@ public class VentanaClientes extends JFrame {
         panelBotones.add(btnModificar);
         panelBotones.add(btnCambiarEstado);
 
-        // Panel Superior
         JPanel panelNorte = new JPanel(new BorderLayout());
         panelNorte.add(panelFormulario, BorderLayout.CENTER);
         panelNorte.add(panelBotones, BorderLayout.SOUTH);
 
-        // Tabla
         modeloTabla = new DefaultTableModel(
             new Object[]{"ID", "Código", "DUI", "Nombre", "Teléfono", "Correo", "Dirección", "Estado"}, 0
         ) {
@@ -110,12 +103,11 @@ public class VentanaClientes extends JFrame {
 
         tablaClientes = new JTable(modeloTabla);
         JScrollPane scrollTabla = new JScrollPane(tablaClientes);
-        scrollTabla.setBorder(BorderFactory.createTitledBorder("Lista de Clientes (Datos Persona 1)"));
+        scrollTabla.setBorder(BorderFactory.createTitledBorder("Lista de Clientes"));
 
         add(panelNorte, BorderLayout.NORTH);
         add(scrollTabla, BorderLayout.CENTER);
 
-        // Eventos
         btnRegistrar.addActionListener(e -> registrarCliente());
         btnListar.addActionListener(e -> cargarDatosTabla());
         btnModificar.addActionListener(e -> modificarCliente());

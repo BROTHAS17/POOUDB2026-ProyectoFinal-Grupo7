@@ -1,0 +1,66 @@
+-- Estado inicial (recién importado el script)  [2026-11-08T17:42:26]
+SELECT id_cliente, codigo_cliente, nombre_completo, estado FROM clientes ORDER BY id_cliente;
+id_cliente | codigo_cliente | nombre_completo | estado
+1 | CLI001 | Ana Lopez | ACTIVO
+2 | CLI002 | Carlos Martinez | ACTIVO
+
+-- CP-02: cliente CLI003 en MySQL  [2026-11-08T17:42:28]
+SELECT id_cliente, codigo_cliente, dui, nombre_completo, estado FROM clientes WHERE codigo_cliente='CLI003';
+id_cliente | codigo_cliente | dui | nombre_completo | estado
+3 | CLI003 | 11111111-1 | Pedro Gomez | ACTIVO
+
+-- CP-03: CLI004 registrado con BLOQUEADO elegido en la lista  [2026-11-08T17:42:29]
+SELECT codigo_cliente, nombre_completo, estado FROM clientes WHERE codigo_cliente='CLI004';
+codigo_cliente | nombre_completo | estado
+CLI004 | Maria Rivas | ACTIVO
+
+-- CP-12: teléfono de CLI003 después de modificar  [2026-11-08T17:42:42]
+SELECT codigo_cliente, telefono FROM clientes WHERE codigo_cliente='CLI003';
+codigo_cliente | telefono
+CLI003 | 7000-0099
+
+-- CP-17: estado de CLI003 después de presionar Modificar con INACTIVO en la lista  [2026-11-08T17:42:47]
+SELECT codigo_cliente, estado FROM clientes WHERE codigo_cliente='CLI003';
+codigo_cliente | estado
+CLI003 | ACTIVO
+
+-- CP-18: Carlos Martinez después de cambiar a INACTIVO  [2026-11-08T17:42:48]
+SELECT codigo_cliente, nombre_completo, estado FROM clientes WHERE codigo_cliente='CLI002';
+codigo_cliente | nombre_completo | estado
+CLI002 | Carlos Martinez | INACTIVO
+
+-- CP-22: cuenta CTA002 en MySQL  [2026-11-08T17:42:53]
+SELECT c.numero_cuenta, c.tipo_cuenta, c.fecha_apertura, c.saldo, c.estado, cl.nombre_completo FROM cuentas c JOIN clientes cl ON c.id_cliente = cl.id_cliente WHERE c.numero_cuenta='CTA002';
+numero_cuenta | tipo_cuenta | fecha_apertura | saldo | estado | nombre_completo
+CTA002 | AHORRO | 2026-11-08 | 0.00 | ACTIVA | Pedro Gomez
+
+-- CP-23: cuentas de Ana Lopez  [2026-11-08T17:42:54]
+SELECT c.numero_cuenta, c.tipo_cuenta, cl.nombre_completo FROM cuentas c JOIN clientes cl ON c.id_cliente = cl.id_cliente WHERE cl.codigo_cliente='CLI001';
+numero_cuenta | tipo_cuenta | nombre_completo
+CTA001 | AHORRO | Ana Lopez
+CTA003 | CORRIENTE | Ana Lopez
+
+-- CP-27: consulta con INNER JOIN (la misma que usa la ventana)  [2026-11-08T17:42:59]
+SELECT c.numero_cuenta, c.tipo_cuenta, c.fecha_apertura, c.saldo, c.estado, cl.nombre_completo FROM cuentas c INNER JOIN clientes cl ON c.id_cliente = cl.id_cliente ORDER BY c.id_cuenta;
+numero_cuenta | tipo_cuenta | fecha_apertura | saldo | estado | nombre_completo
+CTA001 | AHORRO | 2026-11-05 | 0.00 | ACTIVA | Ana Lopez
+CTA002 | AHORRO | 2026-11-08 | 0.00 | ACTIVA | Pedro Gomez
+CTA003 | CORRIENTE | 2026-11-08 | 0.00 | ACTIVA | Ana Lopez
+
+-- Estado final de la prueba completa: clientes  [2026-11-08T17:43:03]
+SELECT id_cliente, codigo_cliente, dui, nombre_completo, telefono, correo, estado FROM clientes ORDER BY id_cliente;
+id_cliente | codigo_cliente | dui | nombre_completo | telefono | correo | estado
+1 | CLI001 | 12345678-9 | Ana Lopez | 7000-0001 | ana.lopez@example.com | ACTIVO
+2 | CLI002 | 98765432-1 | Carlos Martinez | 7000-0002 | carlos.martinez@example.com | INACTIVO
+3 | CLI003 | 11111111-1 | Pedro Gomez | 7000-0099 | pedro.gomez@example.com | ACTIVO
+4 | CLI004 | 22222222-2 | Maria Rivas | 7000-0004 | maria.rivas@example.com | BLOQUEADO
+5 | CLI005 | 33333333-3 | Ana Banco | 7000-0005 | ana+banco@correo.com | ACTIVO
+6 | CLI006 | 44444444-4 | Ana Empresa | 7000-0006 | ana@empresa.company | ACTIVO
+
+-- Estado final de la prueba completa: cuentas  [2026-11-08T17:43:03]
+SELECT c.numero_cuenta, c.tipo_cuenta, c.fecha_apertura, c.saldo, c.estado, cl.nombre_completo FROM cuentas c INNER JOIN clientes cl ON c.id_cliente = cl.id_cliente ORDER BY c.id_cuenta;
+numero_cuenta | tipo_cuenta | fecha_apertura | saldo | estado | nombre_completo
+CTA001 | AHORRO | 2026-11-05 | 0.00 | ACTIVA | Ana Lopez
+CTA002 | AHORRO | 2026-11-08 | 0.00 | ACTIVA | Pedro Gomez
+CTA003 | CORRIENTE | 2026-11-08 | 0.00 | ACTIVA | Ana Lopez
+

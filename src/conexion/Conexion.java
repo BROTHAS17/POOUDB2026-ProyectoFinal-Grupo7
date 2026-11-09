@@ -6,9 +6,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-/**
- * Gestión de la conexión a MySQL usando db.properties.
- */
 public class Conexion {
 
     public static Connection getConexion() throws SQLException {

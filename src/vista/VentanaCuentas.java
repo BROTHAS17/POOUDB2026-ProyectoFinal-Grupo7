@@ -9,6 +9,8 @@ import validacion.ValidadorCuenta;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -38,7 +40,7 @@ public class VentanaCuentas extends JFrame {
     private void initComponents() {
         setTitle("Banco Académico UDB - Registro de Cuentas");
         setSize(850, 500);
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); // Solo cierra esta ventana, no la app entera
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
@@ -83,17 +85,37 @@ public class VentanaCuentas extends JFrame {
         add(scrollTabla, BorderLayout.CENTER);
 
         btnRegistrar.addActionListener(e -> registrarCuenta());
-        btnListar.addActionListener(e -> cargarDatosTabla());
+        btnListar.addActionListener(e -> {
+            cargarClientes();
+            cargarDatosTabla();
+        });
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowActivated(WindowEvent e) {
+                cargarClientes();
+            }
+        });
     }
 
     private void cargarClientes() {
+        ClienteItem anterior = (ClienteItem) cbxCliente.getSelectedItem();
         try {
-            cbxCliente.removeAllItems();
             List<Cliente> clientes = clienteDAO.listar();
+            cbxCliente.removeAllItems();
+            boolean anteriorSigue = false;
             for (Cliente c : clientes) {
                 if ("ACTIVO".equalsIgnoreCase(c.getEstado())) {
-                    cbxCliente.addItem(new ClienteItem(c.getIdCliente(), c.getNombreCompleto()));
+                    ClienteItem item = new ClienteItem(c.getIdCliente(), c.getNombreCompleto());
+                    cbxCliente.addItem(item);
+                    if (anterior != null && anterior.getId() == item.getId()) {
+                        cbxCliente.setSelectedItem(item);
+                        anteriorSigue = true;
+                    }
                 }
+            }
+            if (anterior != null && !anteriorSigue) {
+                cbxCliente.setSelectedIndex(-1);
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Error al cargar clientes: " + ex.getMessage(), "Error SQL", JOptionPane.ERROR_MESSAGE);
@@ -124,9 +146,9 @@ public class VentanaCuentas extends JFrame {
         CuentaBancaria c = new CuentaBancaria();
         c.setNumeroCuenta(txtNumeroCuenta.getText());
         c.setTipoCuenta((String) cbxTipoCuenta.getSelectedItem());
-        c.setFechaApertura(Date.valueOf(LocalDate.now())); // Asigna la fecha de hoy
-        c.setSaldo(new BigDecimal("0.00")); // Saldo inicial 0.00 obligatorio en Fase 1
-        c.setEstado("ACTIVA"); // Estado inicial obligatorio
+        c.setFechaApertura(Date.valueOf(LocalDate.now()));
+        c.setSaldo(new BigDecimal("0.00"));
+        c.setEstado("ACTIVA");
 
         ClienteItem clienteSeleccionado = (ClienteItem) cbxCliente.getSelectedItem();
         if (clienteSeleccionado != null) {
@@ -142,6 +164,22 @@ public class VentanaCuentas extends JFrame {
         }
 
         try {
+            // El cliente pudo cambiar de estado mientras esta ventana estaba abierta.
+            boolean clienteActivo = false;
+            for (Cliente cl : clienteDAO.listar()) {
+                if (cl.getIdCliente() == c.getIdCliente() && "ACTIVO".equalsIgnoreCase(cl.getEstado())) {
+                    clienteActivo = true;
+                    break;
+                }
+            }
+            if (!clienteActivo) {
+                JOptionPane.showMessageDialog(this,
+                        "El cliente seleccionado ya no está ACTIVO. Solo se pueden crear cuentas para clientes activos.",
+                        "Cliente no activo", JOptionPane.WARNING_MESSAGE);
+                cargarClientes();
+                return;
+            }
+
             if (cuentaDAO.existeNumero(c.getNumeroCuenta())) {
                 JOptionPane.showMessageDialog(this, "El número de cuenta ya existe en la base de datos.", "Número Duplicado", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -159,7 +197,6 @@ public class VentanaCuentas extends JFrame {
         }
     }
 
-    // Clase auxiliar para guardar el ID y mostrar el nombre en el JComboBox
     private static class ClienteItem {
         private final int id;
         private final String nombre;
