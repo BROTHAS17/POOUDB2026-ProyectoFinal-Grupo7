@@ -3,20 +3,28 @@ package vista;
 import dao.ReporteDAO;
 import modelo.Cliente;
 import modelo.CuentaBancaria;
+import modelo.ReporteMovimiento;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 public class VentanaReportes extends JFrame {
 
     private static final Logger logger = LogManager.getLogger(VentanaReportes.class);
+    private static final DateTimeFormatter FORMATO_FECHA_HORA = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final ReporteDAO reporteDAO;
 
@@ -37,6 +45,20 @@ public class VentanaReportes extends JFrame {
     private JTextField txtBuscarCliente;
     private DefaultTableModel modeloClientes;
     private JLabel lblResumenClientes;
+
+    // Pestaña: Historial de transacciones
+    private JComboBox<String> cbxTipoHistorial;
+    private JTextField txtFechaDesdeHistorial;
+    private JTextField txtFechaHastaHistorial;
+    private DefaultTableModel modeloHistorial;
+    private JLabel lblResumenHistorial;
+
+    // Pestaña: Transacciones por cuenta
+    private JComboBox<CuentaItem> cbxCuentaReporte;
+    private JComboBox<String> cbxTipoPorCuenta;
+    private JLabel lblInfoCuentaSeleccionada;
+    private DefaultTableModel modeloPorCuenta;
+    private JLabel lblResumenPorCuenta;
 
     public VentanaReportes() {
         this.reporteDAO = new ReporteDAO();
@@ -67,9 +89,18 @@ public class VentanaReportes extends JFrame {
         pestanas.addTab("Cuentas Activas", crearPanelCuentasActivas());
         pestanas.addTab("Cuentas Bloqueadas", crearPanelCuentasBloqueadas());
         pestanas.addTab("Clientes Registrados", crearPanelClientesRegistrados());
+        pestanas.addTab("Historial de Transacciones", crearPanelHistorialTransacciones());
+        pestanas.addTab("Transacciones por Cuenta", crearPanelTransaccionesPorCuenta());
 
         add(panelSuperior, BorderLayout.NORTH);
         add(pestanas, BorderLayout.CENTER);
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowActivated(WindowEvent e) {
+                cargarSelectorCuentas();
+            }
+        });
     }
 
     private JPanel crearPanelCuentasActivas() {
@@ -171,11 +202,102 @@ public class VentanaReportes extends JFrame {
         return panel;
     }
 
+    private JPanel crearPanelHistorialTransacciones() {
+        JPanel panel = new JPanel(new BorderLayout(8, 8));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JPanel filtros = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        filtros.add(new JLabel("Tipo:"));
+        cbxTipoHistorial = new JComboBox<>(new String[]{"TODOS", "DEPOSITO", "RETIRO", "TRANSFERENCIA"});
+        filtros.add(cbxTipoHistorial);
+
+        filtros.add(new JLabel("Desde (YYYY-MM-DD):"));
+        txtFechaDesdeHistorial = new JTextField(10);
+        filtros.add(txtFechaDesdeHistorial);
+
+        filtros.add(new JLabel("Hasta (YYYY-MM-DD):"));
+        txtFechaHastaHistorial = new JTextField(10);
+        filtros.add(txtFechaHastaHistorial);
+
+        JButton btnFiltrar = new JButton("Filtrar");
+        btnFiltrar.addActionListener(e -> cargarHistorialTransacciones());
+        JButton btnLimpiar = new JButton("Limpiar");
+        btnLimpiar.addActionListener(e -> {
+            cbxTipoHistorial.setSelectedIndex(0);
+            txtFechaDesdeHistorial.setText("");
+            txtFechaHastaHistorial.setText("");
+            cargarHistorialTransacciones();
+        });
+
+        filtros.add(btnFiltrar);
+        filtros.add(btnLimpiar);
+
+        modeloHistorial = crearModeloTablaNoEditable(
+                new Object[]{"ID", "Fecha y Hora", "Tipo", "Cuenta Origen", "Cuenta Destino", "Monto", "Saldo Resultante"}
+        );
+        JTable tabla = new JTable(modeloHistorial);
+        JScrollPane scroll = new JScrollPane(tabla);
+        scroll.setBorder(BorderFactory.createTitledBorder("Historial General de Transacciones"));
+
+        lblResumenHistorial = new JLabel("Total de transacciones: 0 | Suma de montos: $0.00");
+        lblResumenHistorial.setFont(lblResumenHistorial.getFont().deriveFont(Font.BOLD));
+
+        panel.add(filtros, BorderLayout.NORTH);
+        panel.add(scroll, BorderLayout.CENTER);
+        panel.add(lblResumenHistorial, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    private JPanel crearPanelTransaccionesPorCuenta() {
+        JPanel panel = new JPanel(new BorderLayout(8, 8));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JPanel panelNorte = new JPanel(new BorderLayout(5, 5));
+
+        JPanel filtros = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        filtros.add(new JLabel("Cuenta:"));
+        cbxCuentaReporte = new JComboBox<>();
+        cbxCuentaReporte.setPreferredSize(new Dimension(340, 26));
+        filtros.add(cbxCuentaReporte);
+
+        filtros.add(new JLabel("Tipo:"));
+        cbxTipoPorCuenta = new JComboBox<>(new String[]{"TODOS", "DEPOSITO", "RETIRO", "TRANSFERENCIA"});
+        filtros.add(cbxTipoPorCuenta);
+
+        JButton btnConsultar = new JButton("Consultar");
+        btnConsultar.addActionListener(e -> cargarTransaccionesPorCuenta());
+        filtros.add(btnConsultar);
+
+        lblInfoCuentaSeleccionada = new JLabel("Seleccione una cuenta para consultar sus transacciones.");
+        lblInfoCuentaSeleccionada.setBorder(BorderFactory.createEmptyBorder(0, 10, 4, 10));
+
+        panelNorte.add(filtros, BorderLayout.NORTH);
+        panelNorte.add(lblInfoCuentaSeleccionada, BorderLayout.SOUTH);
+
+        modeloPorCuenta = crearModeloTablaNoEditable(
+                new Object[]{"ID", "Fecha y Hora", "Tipo", "Cuenta Origen", "Cuenta Destino", "Monto", "Saldo Resultante"}
+        );
+        JTable tabla = new JTable(modeloPorCuenta);
+        JScrollPane scroll = new JScrollPane(tabla);
+        scroll.setBorder(BorderFactory.createTitledBorder("Transacciones de la Cuenta Seleccionada"));
+
+        lblResumenPorCuenta = new JLabel("Movimientos encontrados: 0 | Suma de montos: $0.00");
+        lblResumenPorCuenta.setFont(lblResumenPorCuenta.getFont().deriveFont(Font.BOLD));
+
+        panel.add(panelNorte, BorderLayout.NORTH);
+        panel.add(scroll, BorderLayout.CENTER);
+        panel.add(lblResumenPorCuenta, BorderLayout.SOUTH);
+        return panel;
+    }
+
     private void cargarTodosLosReportes() {
         logger.info("Actualizando reportes desde VentanaReportes");
         cargarCuentasActivas();
         cargarCuentasBloqueadas();
         cargarClientesRegistrados();
+        cargarHistorialTransacciones();
+        cargarSelectorCuentas();
+        cargarTransaccionesPorCuenta();
     }
 
     private void cargarCuentasActivas() {
@@ -257,6 +379,133 @@ public class VentanaReportes extends JFrame {
         }
     }
 
+    private void cargarHistorialTransacciones() {
+        LocalDate desde;
+        LocalDate hasta;
+        try {
+            desde = parsearFechaOpcional(txtFechaDesdeHistorial.getText(), "Desde");
+            hasta = parsearFechaOpcional(txtFechaHastaHistorial.getText(), "Hasta");
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Filtro de fecha inválido en historial de transacciones: {}", ex.getMessage());
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Fecha Inválida", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (desde != null && hasta != null && desde.isAfter(hasta)) {
+            logger.warn("Rango de fechas invertido en historial: desde={} > hasta={}", desde, hasta);
+            JOptionPane.showMessageDialog(this, "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.",
+                    "Rango de Fechas Inválido", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        modeloHistorial.setRowCount(0);
+        String tipo = (String) cbxTipoHistorial.getSelectedItem();
+        try {
+            List<ReporteMovimiento> movimientos = reporteDAO.listarHistorialTransacciones(tipo, desde, hasta);
+            BigDecimal sumaMontos = BigDecimal.ZERO;
+            for (ReporteMovimiento m : movimientos) {
+                BigDecimal monto = m.getMonto() != null ? m.getMonto() : BigDecimal.ZERO;
+                sumaMontos = sumaMontos.add(monto);
+                modeloHistorial.addRow(construirFilaMovimiento(m));
+            }
+            lblResumenHistorial.setText("Total de transacciones: " + movimientos.size()
+                    + " | Suma de montos: " + formatearMonto(sumaMontos));
+        } catch (SQLException ex) {
+            logger.error("Error al cargar historial de transacciones: {}", ex.getMessage(), ex);
+            mostrarErrorSql("Error al cargar historial de transacciones", ex);
+        }
+    }
+
+    private void cargarSelectorCuentas() {
+        CuentaItem anterior = (CuentaItem) cbxCuentaReporte.getSelectedItem();
+        try {
+            List<CuentaBancaria> cuentas = reporteDAO.listarTodasLasCuentas();
+            cbxCuentaReporte.removeAllItems();
+            for (CuentaBancaria c : cuentas) {
+                CuentaItem item = new CuentaItem(c);
+                cbxCuentaReporte.addItem(item);
+                if (anterior != null && anterior.getCuenta().getIdCuenta() == c.getIdCuenta()) {
+                    cbxCuentaReporte.setSelectedItem(item);
+                }
+            }
+        } catch (SQLException ex) {
+            logger.error("Error al cargar selector de cuentas en reportes: {}", ex.getMessage(), ex);
+            mostrarErrorSql("Error al cargar listado de cuentas", ex);
+        }
+    }
+
+    private void cargarTransaccionesPorCuenta() {
+        modeloPorCuenta.setRowCount(0);
+        CuentaItem seleccionada = (CuentaItem) cbxCuentaReporte.getSelectedItem();
+        if (seleccionada == null) {
+            lblInfoCuentaSeleccionada.setText("No hay cuentas disponibles para consultar.");
+            lblResumenPorCuenta.setText("Movimientos encontrados: 0 | Suma de montos: $0.00");
+            return;
+        }
+
+        CuentaBancaria cuenta = seleccionada.getCuenta();
+        lblInfoCuentaSeleccionada.setText(String.format(
+                "Cuenta: %s | Titular: %s | Tipo: %s | Estado: %s | Saldo actual: %s",
+                cuenta.getNumeroCuenta(),
+                cuenta.getNombreCliente(),
+                cuenta.getTipoCuenta(),
+                cuenta.getEstado(),
+                formatearMonto(cuenta.getSaldo())
+        ));
+
+        String tipo = (String) cbxTipoPorCuenta.getSelectedItem();
+        try {
+            List<ReporteMovimiento> movimientos = reporteDAO.listarTransaccionesPorCuenta(cuenta.getIdCuenta(), tipo);
+            BigDecimal sumaMontos = BigDecimal.ZERO;
+            for (ReporteMovimiento m : movimientos) {
+                BigDecimal monto = m.getMonto() != null ? m.getMonto() : BigDecimal.ZERO;
+                sumaMontos = sumaMontos.add(monto);
+                modeloPorCuenta.addRow(construirFilaMovimiento(m));
+            }
+            lblResumenPorCuenta.setText("Movimientos encontrados: " + movimientos.size()
+                    + " | Suma de montos: " + formatearMonto(sumaMontos));
+        } catch (SQLException ex) {
+            logger.error("Error al cargar transacciones por cuenta [idCuenta={}]: {}",
+                    cuenta.getIdCuenta(), ex.getMessage(), ex);
+            mostrarErrorSql("Error al cargar transacciones de la cuenta", ex);
+        }
+    }
+
+    private Object[] construirFilaMovimiento(ReporteMovimiento m) {
+        return new Object[]{
+                m.getId(),
+                formatearFechaHora(m.getFecha()),
+                m.getTipo(),
+                formatearCuenta(m.getNumeroCuentaOrigen(), m.getCuentaOrigenId()),
+                formatearCuenta(m.getNumeroCuentaDestino(), m.getCuentaDestinoId()),
+                formatearMonto(m.getMonto()),
+                formatearMonto(m.getSaldoResultante())
+        };
+    }
+
+    private String formatearCuenta(String numeroCuenta, Integer idCuenta) {
+        if (numeroCuenta != null && !numeroCuenta.trim().isEmpty()) {
+            return numeroCuenta;
+        }
+        return idCuenta != null ? "ID #" + idCuenta : "N/A";
+    }
+
+    private String formatearFechaHora(LocalDateTime fecha) {
+        return fecha != null ? fecha.format(FORMATO_FECHA_HORA) : "";
+    }
+
+    static LocalDate parsearFechaOpcional(String texto, String nombreCampo) {
+        if (texto == null || texto.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(texto.trim());
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException(
+                    "El campo '" + nombreCampo + "' debe tener formato YYYY-MM-DD (ejemplo: 2026-11-21).");
+        }
+    }
+
     private DefaultTableModel crearModeloTablaNoEditable(Object[] columnas) {
         return new DefaultTableModel(columnas, 0) {
             @Override
@@ -274,6 +523,23 @@ public class VentanaReportes extends JFrame {
     private void mostrarErrorSql(String contexto, SQLException ex) {
         JOptionPane.showMessageDialog(this, contexto + ": " + ex.getMessage(),
                 "Error SQL", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private static class CuentaItem {
+        private final CuentaBancaria cuenta;
+
+        public CuentaItem(CuentaBancaria cuenta) {
+            this.cuenta = cuenta;
+        }
+
+        public CuentaBancaria getCuenta() {
+            return cuenta;
+        }
+
+        @Override
+        public String toString() {
+            return cuenta.getNumeroCuenta() + " - " + cuenta.getNombreCliente() + " [" + cuenta.getEstado() + "]";
+        }
     }
 
     public static void main(String[] args) {
