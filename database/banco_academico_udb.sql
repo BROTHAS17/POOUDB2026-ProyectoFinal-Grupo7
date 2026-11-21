@@ -44,3 +44,83 @@ INSERT IGNORE INTO cuentas (numero_cuenta, tipo_cuenta, fecha_apertura, id_clien
 SELECT 'CTA001', 'AHORRO', '2026-11-05', id_cliente
 FROM clientes
 WHERE codigo_cliente = 'CLI001';
+USE banco_academico_udb;
+
+CREATE TABLE IF NOT EXISTS movimientos (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    tipo ENUM('DEPOSITO', 'RETIRO', 'TRANSFERENCIA') NOT NULL,
+    monto DECIMAL(12, 2) NOT NULL,
+    fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cuenta_origen_id INT UNSIGNED NULL,
+    cuenta_destino_id INT UNSIGNED NULL,
+    saldo_resultante DECIMAL(12, 2) NOT NULL,
+    CONSTRAINT fk_movimientos_cuenta_origen
+        FOREIGN KEY (cuenta_origen_id) REFERENCES cuentas(id_cuenta)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_movimientos_cuenta_destino
+        FOREIGN KEY (cuenta_destino_id) REFERENCES cuentas(id_cuenta)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT chk_movimientos_monto_positivo
+        CHECK (monto > 0.00),
+    CONSTRAINT chk_movimientos_saldo_no_negativo
+        CHECK (saldo_resultante >= 0.00)
+);
+
+CREATE INDEX idx_movimientos_origen ON movimientos (cuenta_origen_id, fecha);
+CREATE INDEX idx_movimientos_destino ON movimientos (cuenta_destino_id, fecha);
+CREATE INDEX idx_movimientos_tipo_fecha ON movimientos (tipo, fecha);
+
+-- Cuentas de prueba en estados ACTIVA, INACTIVA y BLOQUEADA
+INSERT INTO cuentas (numero_cuenta, tipo_cuenta, fecha_apertura, saldo, estado, id_cliente)
+SELECT 'CTA-PRB-01', 'AHORRO', CURDATE(), 1500.00, 'ACTIVA', c.id_cliente
+FROM clientes c ORDER BY c.id_cliente ASC LIMIT 1
+ON DUPLICATE KEY UPDATE numero_cuenta = numero_cuenta;
+
+INSERT INTO cuentas (numero_cuenta, tipo_cuenta, fecha_apertura, saldo, estado, id_cliente)
+SELECT 'CTA-PRB-02', 'CORRIENTE', CURDATE(), 800.00, 'ACTIVA', c.id_cliente
+FROM clientes c ORDER BY c.id_cliente ASC LIMIT 1
+ON DUPLICATE KEY UPDATE numero_cuenta = numero_cuenta;
+
+INSERT INTO cuentas (numero_cuenta, tipo_cuenta, fecha_apertura, saldo, estado, id_cliente)
+SELECT 'CTA-PRB-03', 'AHORRO', CURDATE(), 350.00, 'INACTIVA', c.id_cliente
+FROM clientes c ORDER BY c.id_cliente ASC LIMIT 1
+ON DUPLICATE KEY UPDATE numero_cuenta = numero_cuenta;
+
+INSERT INTO cuentas (numero_cuenta, tipo_cuenta, fecha_apertura, saldo, estado, id_cliente)
+SELECT 'CTA-PRB-04', 'CORRIENTE', CURDATE(), 600.00, 'BLOQUEADA', c.id_cliente
+FROM clientes c ORDER BY c.id_cliente ASC LIMIT 1
+ON DUPLICATE KEY UPDATE numero_cuenta = numero_cuenta;
+
+-- Movimientos iniciales de prueba
+INSERT INTO movimientos (tipo, monto, fecha, cuenta_origen_id, cuenta_destino_id, saldo_resultante)
+SELECT 'DEPOSITO', 1500.00, DATE_SUB(NOW(), INTERVAL 2 DAY), NULL, c.id_cuenta, 1500.00
+FROM cuentas c
+WHERE c.numero_cuenta = 'CTA-PRB-01'
+  AND NOT EXISTS (
+      SELECT 1 FROM movimientos m
+      WHERE m.tipo = 'DEPOSITO' AND m.cuenta_destino_id = c.id_cuenta AND m.monto = 1500.00
+  );
+
+INSERT INTO movimientos (tipo, monto, fecha, cuenta_origen_id, cuenta_destino_id, saldo_resultante)
+SELECT 'DEPOSITO', 800.00, DATE_SUB(NOW(), INTERVAL 1 DAY), NULL, c.id_cuenta, 800.00
+FROM cuentas c
+WHERE c.numero_cuenta = 'CTA-PRB-02'
+  AND NOT EXISTS (
+      SELECT 1 FROM movimientos m
+      WHERE m.tipo = 'DEPOSITO' AND m.cuenta_destino_id = c.id_cuenta AND m.monto = 800.00
+  );
+
+INSERT INTO movimientos (tipo, monto, fecha, cuenta_origen_id, cuenta_destino_id, saldo_resultante)
+SELECT 'TRANSFERENCIA', 200.00, NOW(), origen.id_cuenta, destino.id_cuenta, 1300.00
+FROM cuentas origen
+JOIN cuentas destino ON destino.numero_cuenta = 'CTA-PRB-02'
+WHERE origen.numero_cuenta = 'CTA-PRB-01'
+  AND NOT EXISTS (
+      SELECT 1 FROM movimientos m
+      WHERE m.tipo = 'TRANSFERENCIA'
+        AND m.cuenta_origen_id = origen.id_cuenta
+        AND m.cuenta_destino_id = destino.id_cuenta
+        AND m.monto = 200.00
+  );
