@@ -4,6 +4,7 @@ import dao.ReporteDAO;
 import modelo.Cliente;
 import modelo.CuentaBancaria;
 import modelo.ReporteMovimiento;
+import modelo.ResumenTotales;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -29,6 +30,15 @@ public class VentanaReportes extends JFrame {
     private final ReporteDAO reporteDAO;
 
     private JTabbedPane pestanas;
+
+    // Pestaña: Totales (depositado, retirado, transferido)
+    private JTextField txtFechaDesdeTotales;
+    private JTextField txtFechaHastaTotales;
+    private JLabel lblTotalDepositado;
+    private JLabel lblTotalRetirado;
+    private JLabel lblTotalTransferido;
+    private DefaultTableModel modeloTotales;
+    private JLabel lblResumenTotales;
 
     // Pestaña: Cuentas activas
     private JComboBox<String> cbxTipoCuentasActivas;
@@ -86,6 +96,7 @@ public class VentanaReportes extends JFrame {
         panelSuperior.add(btnActualizarTodo, BorderLayout.EAST);
 
         pestanas = new JTabbedPane();
+        pestanas.addTab("Totales", crearPanelTotales());
         pestanas.addTab("Cuentas Activas", crearPanelCuentasActivas());
         pestanas.addTab("Cuentas Bloqueadas", crearPanelCuentasBloqueadas());
         pestanas.addTab("Clientes Registrados", crearPanelClientesRegistrados());
@@ -101,6 +112,76 @@ public class VentanaReportes extends JFrame {
                 cargarSelectorCuentas();
             }
         });
+    }
+
+    private JPanel crearPanelTotales() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JPanel panelNorte = new JPanel(new BorderLayout(10, 10));
+
+        JPanel filtros = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        filtros.add(new JLabel("Desde (YYYY-MM-DD):"));
+        txtFechaDesdeTotales = new JTextField(10);
+        filtros.add(txtFechaDesdeTotales);
+
+        filtros.add(new JLabel("Hasta (YYYY-MM-DD):"));
+        txtFechaHastaTotales = new JTextField(10);
+        filtros.add(txtFechaHastaTotales);
+
+        JButton btnFiltrar = new JButton("Calcular Totales");
+        btnFiltrar.addActionListener(e -> cargarTotales());
+        JButton btnLimpiar = new JButton("Limpiar");
+        btnLimpiar.addActionListener(e -> {
+            txtFechaDesdeTotales.setText("");
+            txtFechaHastaTotales.setText("");
+            cargarTotales();
+        });
+        filtros.add(btnFiltrar);
+        filtros.add(btnLimpiar);
+
+        JPanel panelTarjetas = new JPanel(new GridLayout(1, 3, 12, 12));
+        lblTotalDepositado = crearEtiquetaIndicador();
+        lblTotalRetirado = crearEtiquetaIndicador();
+        lblTotalTransferido = crearEtiquetaIndicador();
+
+        panelTarjetas.add(crearTarjetaIndicador("Total Depositado", lblTotalDepositado));
+        panelTarjetas.add(crearTarjetaIndicador("Total Retirado", lblTotalRetirado));
+        panelTarjetas.add(crearTarjetaIndicador("Total Transferido", lblTotalTransferido));
+
+        panelNorte.add(filtros, BorderLayout.NORTH);
+        panelNorte.add(panelTarjetas, BorderLayout.CENTER);
+
+        modeloTotales = crearModeloTablaNoEditable(
+                new Object[]{"Tipo de Operación", "Cantidad de Movimientos", "Monto Total"}
+        );
+        JTable tabla = new JTable(modeloTotales);
+        JScrollPane scroll = new JScrollPane(tabla);
+        scroll.setBorder(BorderFactory.createTitledBorder("Resumen de Totales por Tipo de Transacción"));
+
+        lblResumenTotales = new JLabel("Total de operaciones: 0 | Monto total operado: $0.00");
+        lblResumenTotales.setFont(lblResumenTotales.getFont().deriveFont(Font.BOLD));
+
+        panel.add(panelNorte, BorderLayout.NORTH);
+        panel.add(scroll, BorderLayout.CENTER);
+        panel.add(lblResumenTotales, BorderLayout.SOUTH);
+        return panel;
+    }
+
+    private JLabel crearEtiquetaIndicador() {
+        JLabel label = new JLabel("$0.00", SwingConstants.CENTER);
+        label.setFont(label.getFont().deriveFont(Font.BOLD, 22f));
+        return label;
+    }
+
+    private JPanel crearTarjetaIndicador(String titulo, JLabel etiquetaValor) {
+        JPanel tarjeta = new JPanel(new BorderLayout(5, 5));
+        tarjeta.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createTitledBorder(titulo),
+                BorderFactory.createEmptyBorder(12, 10, 12, 10)
+        ));
+        tarjeta.add(etiquetaValor, BorderLayout.CENTER);
+        return tarjeta;
     }
 
     private JPanel crearPanelCuentasActivas() {
@@ -291,13 +372,62 @@ public class VentanaReportes extends JFrame {
     }
 
     private void cargarTodosLosReportes() {
-        logger.info("Actualizando reportes desde VentanaReportes");
+        logger.info("Actualizando los 8 reportes desde VentanaReportes");
+        cargarTotales();
         cargarCuentasActivas();
         cargarCuentasBloqueadas();
         cargarClientesRegistrados();
         cargarHistorialTransacciones();
         cargarSelectorCuentas();
         cargarTransaccionesPorCuenta();
+    }
+
+    private void cargarTotales() {
+        LocalDate desde;
+        LocalDate hasta;
+        try {
+            desde = parsearFechaOpcional(txtFechaDesdeTotales.getText(), "Desde");
+            hasta = parsearFechaOpcional(txtFechaHastaTotales.getText(), "Hasta");
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Filtro de fecha inválido en reporte de totales: {}", ex.getMessage());
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Fecha Inválida", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (desde != null && hasta != null && desde.isAfter(hasta)) {
+            logger.warn("Rango de fechas invertido en totales: desde={} > hasta={}", desde, hasta);
+            JOptionPane.showMessageDialog(this, "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.",
+                    "Rango de Fechas Inválido", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        modeloTotales.setRowCount(0);
+        try {
+            ResumenTotales resumen = reporteDAO.obtenerResumenTotales(desde, hasta);
+
+            lblTotalDepositado.setText(formatearMonto(resumen.getTotalDepositado()));
+            lblTotalRetirado.setText(formatearMonto(resumen.getTotalRetirado()));
+            lblTotalTransferido.setText(formatearMonto(resumen.getTotalTransferido()));
+
+            modeloTotales.addRow(new Object[]{
+                    "DEPOSITO", resumen.getCantidadDepositos(), formatearMonto(resumen.getTotalDepositado())
+            });
+            modeloTotales.addRow(new Object[]{
+                    "RETIRO", resumen.getCantidadRetiros(), formatearMonto(resumen.getTotalRetirado())
+            });
+            modeloTotales.addRow(new Object[]{
+                    "TRANSFERENCIA", resumen.getCantidadTransferencias(), formatearMonto(resumen.getTotalTransferido())
+            });
+            modeloTotales.addRow(new Object[]{
+                    "TOTAL GENERAL", resumen.getTotalMovimientos(), formatearMonto(resumen.getMontoTotalOperado())
+            });
+
+            lblResumenTotales.setText("Total de operaciones: " + resumen.getTotalMovimientos()
+                    + " | Monto total operado: " + formatearMonto(resumen.getMontoTotalOperado()));
+        } catch (SQLException ex) {
+            logger.error("Error al cargar reporte de totales: {}", ex.getMessage(), ex);
+            mostrarErrorSql("Error al cargar reporte de totales", ex);
+        }
     }
 
     private void cargarCuentasActivas() {
@@ -494,7 +624,7 @@ public class VentanaReportes extends JFrame {
         return fecha != null ? fecha.format(FORMATO_FECHA_HORA) : "";
     }
 
-    static LocalDate parsearFechaOpcional(String texto, String nombreCampo) {
+    public static LocalDate parsearFechaOpcional(String texto, String nombreCampo) {
         if (texto == null || texto.trim().isEmpty()) {
             return null;
         }

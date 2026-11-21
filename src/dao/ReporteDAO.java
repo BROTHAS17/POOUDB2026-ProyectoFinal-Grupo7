@@ -4,9 +4,12 @@ import conexion.Conexion;
 import modelo.Cliente;
 import modelo.CuentaBancaria;
 import modelo.ReporteMovimiento;
+import modelo.ResumenTotales;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -269,5 +272,83 @@ public class ReporteDAO {
 
         rm.setSaldoResultante(rs.getBigDecimal("saldo_resultante"));
         return rm;
+    }
+
+    public ResumenTotales obtenerResumenTotales() throws SQLException {
+        return obtenerResumenTotales(null, null);
+    }
+
+    public ResumenTotales obtenerResumenTotales(LocalDate desde, LocalDate hasta) throws SQLException {
+        ResumenTotales resumen = new ResumenTotales();
+        StringBuilder sql = new StringBuilder(
+                "SELECT tipo, COALESCE(SUM(monto), 0.00) AS total, COUNT(*) AS cantidad "
+                        + "FROM movimientos WHERE 1=1"
+        );
+
+        if (desde != null) {
+            sql.append(" AND fecha >= ?");
+        }
+        if (hasta != null) {
+            sql.append(" AND fecha < ?");
+        }
+        sql.append(" GROUP BY tipo");
+
+        try (Connection con = Conexion.getConexion();
+             PreparedStatement ps = con.prepareStatement(sql.toString())) {
+            int idx = 1;
+            if (desde != null) {
+                ps.setTimestamp(idx++, Timestamp.valueOf(desde.atStartOfDay()));
+            }
+            if (hasta != null) {
+                ps.setTimestamp(idx++, Timestamp.valueOf(hasta.plusDays(1).atStartOfDay()));
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String tipo = rs.getString("tipo");
+                    BigDecimal total = rs.getBigDecimal("total");
+                    int cantidad = rs.getInt("cantidad");
+
+                    if ("DEPOSITO".equalsIgnoreCase(tipo)) {
+                        resumen.setTotalDepositado(total);
+                        resumen.setCantidadDepositos(cantidad);
+                    } else if ("RETIRO".equalsIgnoreCase(tipo)) {
+                        resumen.setTotalRetirado(total);
+                        resumen.setCantidadRetiros(cantidad);
+                    } else if ("TRANSFERENCIA".equalsIgnoreCase(tipo)) {
+                        resumen.setTotalTransferido(total);
+                        resumen.setCantidadTransferencias(cantidad);
+                    }
+                }
+            }
+            logger.info("Resumen de totales consultado [desde={}, hasta={}, depositado={}, retirado={}, transferido={}]",
+                    desde, hasta, resumen.getTotalDepositado(), resumen.getTotalRetirado(),
+                    resumen.getTotalTransferido());
+            return resumen;
+        } catch (SQLException e) {
+            logger.error("Error al consultar resumen de totales: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    public BigDecimal obtenerTotalPorTipo(String tipo) throws SQLException {
+        String sql = "SELECT COALESCE(SUM(monto), 0.00) AS total FROM movimientos WHERE tipo = ?";
+        try (Connection con = Conexion.getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, tipo.trim().toUpperCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    BigDecimal total = rs.getBigDecimal("total");
+                    BigDecimal resultado = (total != null ? total : BigDecimal.ZERO)
+                            .setScale(2, RoundingMode.HALF_UP);
+                    logger.info("Total por tipo consultado [tipo={}, total={}]", tipo, resultado);
+                    return resultado;
+                }
+            }
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        } catch (SQLException e) {
+            logger.error("Error al consultar total por tipo [tipo={}]: {}", tipo, e.getMessage(), e);
+            throw e;
+        }
     }
 }
