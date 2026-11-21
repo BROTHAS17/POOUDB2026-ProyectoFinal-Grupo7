@@ -44,8 +44,6 @@ INSERT IGNORE INTO cuentas (numero_cuenta, tipo_cuenta, fecha_apertura, id_clien
 SELECT 'CTA001', 'AHORRO', '2026-11-05', id_cliente
 FROM clientes
 WHERE codigo_cliente = 'CLI001';
-USE banco_academico_udb;
-
 CREATE TABLE IF NOT EXISTS movimientos (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     tipo ENUM('DEPOSITO', 'RETIRO', 'TRANSFERENCIA') NOT NULL,
@@ -65,21 +63,21 @@ CREATE TABLE IF NOT EXISTS movimientos (
     CONSTRAINT chk_movimientos_monto_positivo
         CHECK (monto > 0.00),
     CONSTRAINT chk_movimientos_saldo_no_negativo
-        CHECK (saldo_resultante >= 0.00)
-);
-
-CREATE INDEX idx_movimientos_origen ON movimientos (cuenta_origen_id, fecha);
-CREATE INDEX idx_movimientos_destino ON movimientos (cuenta_destino_id, fecha);
-CREATE INDEX idx_movimientos_tipo_fecha ON movimientos (tipo, fecha);
+        CHECK (saldo_resultante >= 0.00),
+    INDEX idx_movimientos_origen (cuenta_origen_id, fecha),
+    INDEX idx_movimientos_destino (cuenta_destino_id, fecha),
+    INDEX idx_movimientos_tipo_fecha (tipo, fecha)
+) ENGINE=InnoDB;
 
 -- Cuentas de prueba en estados ACTIVA, INACTIVA y BLOQUEADA
+-- Los saldos de CTA-PRB-01 (1300.00) y CTA-PRB-02 (1000.00) reflejan los movimientos iniciales (incluyendo la transferencia de 200.00)
 INSERT INTO cuentas (numero_cuenta, tipo_cuenta, fecha_apertura, saldo, estado, id_cliente)
-SELECT 'CTA-PRB-01', 'AHORRO', CURDATE(), 1500.00, 'ACTIVA', c.id_cliente
+SELECT 'CTA-PRB-01', 'AHORRO', CURDATE(), 1300.00, 'ACTIVA', c.id_cliente
 FROM clientes c ORDER BY c.id_cliente ASC LIMIT 1
 ON DUPLICATE KEY UPDATE numero_cuenta = numero_cuenta;
 
 INSERT INTO cuentas (numero_cuenta, tipo_cuenta, fecha_apertura, saldo, estado, id_cliente)
-SELECT 'CTA-PRB-02', 'CORRIENTE', CURDATE(), 800.00, 'ACTIVA', c.id_cliente
+SELECT 'CTA-PRB-02', 'CORRIENTE', CURDATE(), 1000.00, 'ACTIVA', c.id_cliente
 FROM clientes c ORDER BY c.id_cliente ASC LIMIT 1
 ON DUPLICATE KEY UPDATE numero_cuenta = numero_cuenta;
 

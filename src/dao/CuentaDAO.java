@@ -2,7 +2,10 @@ package dao;
 
 import conexion.Conexion;
 import modelo.CuentaBancaria;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -11,6 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CuentaDAO {
+
+    private static final Logger logger = LogManager.getLogger(CuentaDAO.class);
 
     public boolean registrar(CuentaBancaria c) throws SQLException {
         String sql = "INSERT INTO cuentas (numero_cuenta, tipo_cuenta, fecha_apertura, saldo, estado, id_cliente) "
@@ -63,42 +68,29 @@ public class CuentaDAO {
                     return rs.getInt(1) > 0;
                 }
             }
-            // 1. Imports necesarios (agregar arriba si faltan):
-import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-// 2. Atributo logger dentro de CuentaDAO:
-private static final Logger logger = LogManager.getLogger(CuentaDAO.class);
-
-// 3. MÃ©todos a pegar antes de la Ãºltima llave '}' de CuentaDAO:
-public boolean actualizarSaldo(int idCuenta, BigDecimal nuevoSaldo) throws SQLException {
-    try (Connection conn = Conexion.getConexion()) {
-        return actualizarSaldo(idCuenta, nuevoSaldo, conn);
-    }
-}
-
-public boolean actualizarSaldo(int idCuenta, BigDecimal nuevoSaldo, Connection conn) throws SQLException {
-    String sql = "UPDATE cuentas SET saldo = ? WHERE id_cuenta = ?";
-    try (PreparedStatement ps = conn.prepareStatement(sql)) {
-        ps.setBigDecimal(1, nuevoSaldo);
-        ps.setInt(2, idCuenta);
-        int filas = ps.executeUpdate();
-        logger.info("Saldo actualizado [id_cuenta={}, nuevoSaldo={}, filasAfectadas={}]",
-                idCuenta, nuevoSaldo, filas);
-        return filas > 0;
-    } catch (SQLException e) {
-        logger.error("Fallo al actualizar saldo [id_cuenta={}, nuevoSaldo={}]: {}",
-                idCuenta, nuevoSaldo, e.getMessage(), e);
-        throw e;
-    }
-}
-
-
         }
         return false;
+    }
+
+    public boolean actualizarSaldo(int idCuenta, BigDecimal nuevoSaldo) throws SQLException {
+        try (Connection conn = Conexion.getConexion()) {
+            return actualizarSaldo(idCuenta, nuevoSaldo, conn);
+        }
+    }
+
+    public boolean actualizarSaldo(int idCuenta, BigDecimal nuevoSaldo, Connection conn) throws SQLException {
+        String sql = "UPDATE cuentas SET saldo = ? WHERE id_cuenta = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBigDecimal(1, nuevoSaldo);
+            ps.setInt(2, idCuenta);
+            int filas = ps.executeUpdate();
+            logger.info("Saldo actualizado [id_cuenta={}, nuevoSaldo={}, filasAfectadas={}]",
+                    idCuenta, nuevoSaldo, filas);
+            return filas > 0;
+        } catch (SQLException e) {
+            logger.error("Fallo al actualizar saldo [id_cuenta={}, nuevoSaldo={}]: {}",
+                    idCuenta, nuevoSaldo, e.getMessage(), e);
+            throw e;
+        }
     }
 }
