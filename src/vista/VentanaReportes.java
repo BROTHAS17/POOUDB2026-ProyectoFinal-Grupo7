@@ -9,6 +9,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
@@ -155,7 +156,7 @@ public class VentanaReportes extends JFrame {
         modeloTotales = crearModeloTablaNoEditable(
                 new Object[]{"Tipo de Operación", "Cantidad de Movimientos", "Monto Total"}
         );
-        JTable tabla = new JTable(modeloTotales);
+        JTable tabla = crearTablaReporte(modeloTotales, 1, 2);
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setBorder(BorderFactory.createTitledBorder("Resumen de Totales por Tipo de Transacción"));
 
@@ -200,7 +201,7 @@ public class VentanaReportes extends JFrame {
         modeloCuentasActivas = crearModeloTablaNoEditable(
                 new Object[]{"ID", "Número", "Tipo", "Fecha Apertura", "Saldo", "Estado", "Cliente"}
         );
-        JTable tabla = new JTable(modeloCuentasActivas);
+        JTable tabla = crearTablaReporte(modeloCuentasActivas, 0, 4);
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setBorder(BorderFactory.createTitledBorder("Listado de Cuentas Activas"));
 
@@ -229,7 +230,7 @@ public class VentanaReportes extends JFrame {
         modeloCuentasBloqueadas = crearModeloTablaNoEditable(
                 new Object[]{"ID", "Número", "Tipo", "Fecha Apertura", "Saldo", "Estado", "Cliente"}
         );
-        JTable tabla = new JTable(modeloCuentasBloqueadas);
+        JTable tabla = crearTablaReporte(modeloCuentasBloqueadas, 0, 4);
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setBorder(BorderFactory.createTitledBorder("Listado de Cuentas Bloqueadas"));
 
@@ -270,7 +271,7 @@ public class VentanaReportes extends JFrame {
         modeloClientes = crearModeloTablaNoEditable(
                 new Object[]{"ID", "Código", "DUI", "Nombre Completo", "Teléfono", "Correo", "Dirección", "Estado"}
         );
-        JTable tabla = new JTable(modeloClientes);
+        JTable tabla = crearTablaReporte(modeloClientes, 0);
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setBorder(BorderFactory.createTitledBorder("Clientes Registrados"));
 
@@ -316,7 +317,7 @@ public class VentanaReportes extends JFrame {
         modeloHistorial = crearModeloTablaNoEditable(
                 new Object[]{"ID", "Fecha y Hora", "Tipo", "Cuenta Origen", "Cuenta Destino", "Monto", "Saldo Resultante"}
         );
-        JTable tabla = new JTable(modeloHistorial);
+        JTable tabla = crearTablaReporte(modeloHistorial, 0, 5, 6);
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setBorder(BorderFactory.createTitledBorder("Historial General de Transacciones"));
 
@@ -358,7 +359,7 @@ public class VentanaReportes extends JFrame {
         modeloPorCuenta = crearModeloTablaNoEditable(
                 new Object[]{"ID", "Fecha y Hora", "Tipo", "Cuenta Origen", "Cuenta Destino", "Monto", "Saldo Resultante"}
         );
-        JTable tabla = new JTable(modeloPorCuenta);
+        JTable tabla = crearTablaReporte(modeloPorCuenta, 0, 5, 6);
         JScrollPane scroll = new JScrollPane(tabla);
         scroll.setBorder(BorderFactory.createTitledBorder("Transacciones de la Cuenta Seleccionada"));
 
@@ -634,6 +635,23 @@ public class VentanaReportes extends JFrame {
             throw new IllegalArgumentException(
                     "El campo '" + nombreCampo + "' debe tener formato YYYY-MM-DD (ejemplo: 2026-11-21).");
         }
+    }
+
+    private JTable crearTablaReporte(DefaultTableModel modelo, int... columnasDerecha) {
+        JTable tabla = new JTable(modelo);
+        tabla.setRowHeight(24);
+        tabla.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tabla.setAutoCreateRowSorter(true);
+        tabla.getTableHeader().setReorderingAllowed(false);
+
+        DefaultTableCellRenderer derecha = new DefaultTableCellRenderer();
+        derecha.setHorizontalAlignment(SwingConstants.RIGHT);
+        for (int col : columnasDerecha) {
+            if (col >= 0 && col < tabla.getColumnCount()) {
+                tabla.getColumnModel().getColumn(col).setCellRenderer(derecha);
+            }
+        }
+        return tabla;
     }
 
     private DefaultTableModel crearModeloTablaNoEditable(Object[] columnas) {
