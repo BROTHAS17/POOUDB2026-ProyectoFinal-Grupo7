@@ -2,6 +2,8 @@ package dao;
 
 import conexion.Conexion;
 import modelo.CuentaBancaria;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -13,6 +15,8 @@ import java.util.List;
 
 public class CuentaDAO {
 
+    private static final Logger logger = LogManager.getLogger(CuentaDAO.class);
+
     public boolean registrar(CuentaBancaria c) throws SQLException {
         String sql = "INSERT INTO cuentas (numero_cuenta, tipo_cuenta, fecha_apertura, saldo, estado, id_cliente) "
                 + "VALUES (?, ?, ?, ?, ?, ?)";
@@ -21,8 +25,8 @@ public class CuentaDAO {
             ps.setString(1, c.getNumeroCuenta().trim());
             ps.setString(2, c.getTipoCuenta().trim());
             ps.setDate(3, c.getFechaApertura());
-            ps.setBigDecimal(4, c.getSaldo()); // Siempre será 0.00 al inicio
-            ps.setString(5, c.getEstado().trim()); // Siempre será "ACTIVA" al inicio
+            ps.setBigDecimal(4, c.getSaldo());
+            ps.setString(5, c.getEstado().trim());
             ps.setInt(6, c.getIdCliente());
             return ps.executeUpdate() > 0;
         }
@@ -66,5 +70,27 @@ public class CuentaDAO {
             }
         }
         return false;
+    }
+
+    public boolean actualizarSaldo(int idCuenta, BigDecimal nuevoSaldo) throws SQLException {
+        try (Connection conn = Conexion.getConexion()) {
+            return actualizarSaldo(idCuenta, nuevoSaldo, conn);
+        }
+    }
+
+    public boolean actualizarSaldo(int idCuenta, BigDecimal nuevoSaldo, Connection conn) throws SQLException {
+        String sql = "UPDATE cuentas SET saldo = ? WHERE id_cuenta = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setBigDecimal(1, nuevoSaldo);
+            ps.setInt(2, idCuenta);
+            int filas = ps.executeUpdate();
+            logger.info("Saldo actualizado [id_cuenta={}, nuevoSaldo={}, filasAfectadas={}]",
+                    idCuenta, nuevoSaldo, filas);
+            return filas > 0;
+        } catch (SQLException e) {
+            logger.error("Fallo al actualizar saldo [id_cuenta={}, nuevoSaldo={}]: {}",
+                    idCuenta, nuevoSaldo, e.getMessage(), e);
+            throw e;
+        }
     }
 }

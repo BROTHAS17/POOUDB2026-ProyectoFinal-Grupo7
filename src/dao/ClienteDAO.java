@@ -10,9 +10,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Operaciones CRUD contra la tabla clientes creada por Persona 1.
- */
 public class ClienteDAO {
 
     public boolean registrar(Cliente c) throws SQLException {
@@ -57,7 +54,7 @@ public class ClienteDAO {
 
     public boolean modificar(Cliente c) throws SQLException {
         String sql = "UPDATE clientes SET codigo_cliente = ?, dui = ?, nombre_completo = ?, telefono = ?, "
-                   + "correo = ?, direccion = ?, estado = ? WHERE id_cliente = ?";
+                   + "correo = ?, direccion = ? WHERE id_cliente = ?";
         try (Connection con = Conexion.getConexion();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, c.getCodigoCliente().trim());
@@ -66,8 +63,7 @@ public class ClienteDAO {
             ps.setString(4, c.getTelefono().trim());
             ps.setString(5, c.getCorreo().trim());
             ps.setString(6, c.getDireccion().trim());
-            ps.setString(7, c.getEstado().trim());
-            ps.setInt(8, c.getIdCliente());
+            ps.setInt(7, c.getIdCliente());
             return ps.executeUpdate() > 0;
         }
     }

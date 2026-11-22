@@ -9,4 +9,5 @@ IMPORTAR LA BASE DE DATOS EN MYSQL WORKBENCH
 7. Verificar que aparezca banco_academico_udb.
 8. Abrir las tablas clientes y cuentas para comprobar los datos de prueba.
 
-El archivo debe ejecutarse en un servidor donde no exista una base de datos con ese mismo nombre.
+El script se puede ejecutar más de una vez: si la base, el usuario o los datos de prueba ya existen, no los repite.
+Para dejar la base solo con los datos de prueba, ejecutar primero DROP DATABASE banco_academico_udb; y luego el script.

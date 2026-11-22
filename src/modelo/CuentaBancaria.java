@@ -3,9 +3,6 @@ package modelo;
 import java.math.BigDecimal;
 import java.sql.Date;
 
-/**
- * Clase que representa una cuenta bancaria.
- */
 public class CuentaBancaria {
     private int idCuenta;
     private String numeroCuenta;
