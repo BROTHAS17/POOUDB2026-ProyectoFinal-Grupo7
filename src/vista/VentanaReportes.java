@@ -588,13 +588,25 @@ public class VentanaReportes extends JFrame {
         try {
             List<ReporteMovimiento> movimientos = reporteDAO.listarTransaccionesPorCuenta(cuenta.getIdCuenta(), tipo);
             BigDecimal sumaMontos = BigDecimal.ZERO;
+            boolean hayTransferenciaRecibida = false;
             for (ReporteMovimiento m : movimientos) {
                 BigDecimal monto = m.getMonto() != null ? m.getMonto() : BigDecimal.ZERO;
                 sumaMontos = sumaMontos.add(monto);
-                modeloPorCuenta.addRow(construirFilaMovimiento(m));
+                Object[] fila = construirFilaMovimiento(m);
+                // en una transferencia recibida SALDO_RESULTANTE es el saldo de la cuenta de origen,
+                // no el de esta cuenta, por eso se muestra --- igual que en la ventana de historial
+                if (esTransferenciaRecibida(m, cuenta.getIdCuenta())) {
+                    fila[6] = "---";
+                    hayTransferenciaRecibida = true;
+                }
+                modeloPorCuenta.addRow(fila);
             }
-            lblResumenPorCuenta.setText("Movimientos encontrados: " + movimientos.size()
-                    + " | Suma de montos: " + formatearMonto(sumaMontos));
+            String resumen = "Movimientos encontrados: " + movimientos.size()
+                    + " | Suma de montos: " + formatearMonto(sumaMontos);
+            if (hayTransferenciaRecibida) {
+                resumen += " | En las transferencias recibidas no se muestra el saldo resultante";
+            }
+            lblResumenPorCuenta.setText(resumen);
         } catch (SQLException ex) {
             logger.error("Error al cargar transacciones por cuenta [idCuenta={}]: {}",
                     cuenta.getIdCuenta(), ex.getMessage(), ex);
@@ -612,6 +624,13 @@ public class VentanaReportes extends JFrame {
                 formatearMonto(m.getMonto()),
                 formatearMonto(m.getSaldoResultante())
         };
+    }
+
+    // indica si M es una transferencia que entró a la cuenta IDCUENTA
+    private boolean esTransferenciaRecibida(ReporteMovimiento m, int idCuenta) {
+        return "TRANSFERENCIA".equalsIgnoreCase(m.getTipo())
+                && m.getCuentaDestinoId() != null
+                && m.getCuentaDestinoId() == idCuenta;
     }
 
     private String formatearCuenta(String numeroCuenta, Integer idCuenta) {
