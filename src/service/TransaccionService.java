@@ -56,53 +56,72 @@ public class TransaccionService {
     public Movimiento realizarDeposito(String numeroCuenta, BigDecimal monto)
             throws MontoInvalidoException, CuentaNoEncontradaException, CuentaInactivaException, SQLException {
 
-        // 1. Validar monto > 0
+        // 1. Validar número de cuenta y monto (> 0 y máximo 2 decimales)
+        if (numeroCuenta == null || numeroCuenta.trim().isEmpty()) {
+            throw new CuentaNoEncontradaException("Debe ingresar un número de cuenta.");
+        }
+        String cuentaNum = numeroCuenta.trim();
+
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
-            logger.warn("Intento de depósito con monto inválido [cuenta={}, monto={}]", numeroCuenta, monto);
+            logger.warn("Intento de depósito con monto inválido [cuenta={}, monto={}]", cuentaNum, monto);
             throw new MontoInvalidoException("El monto a depositar debe ser mayor que cero ($0.00).");
         }
-
-        // 2. Validar existencia de cuenta
-        CuentaBancaria cuenta = buscarCuentaPorNumero(numeroCuenta);
-
-        // 3. Validar cuenta activa
-        if (!"ACTIVA".equalsIgnoreCase(cuenta.getEstado())) {
-            logger.warn("Intento de depósito en cuenta no activa [cuenta={}, estado={}]",
-                    numeroCuenta, cuenta.getEstado());
-            throw new CuentaInactivaException("La cuenta " + numeroCuenta + " no está activa (Estado: " + cuenta.getEstado() + ").");
+        if (monto.stripTrailingZeros().scale() > 2) {
+            logger.warn("Intento de depósito con más de dos decimales [cuenta={}, monto={}]", cuentaNum, monto);
+            throw new MontoInvalidoException("El monto no puede tener más de dos decimales.");
         }
 
-        // 4. Calcular nuevo saldo y ejecutar transacción
-        BigDecimal nuevoSaldo = cuenta.getSaldo().add(monto);
-        Movimiento mov = new Movimiento("DEPOSITO", monto, null, cuenta.getIdCuenta(), nuevoSaldo);
-
         Connection conn = null;
+        boolean confirmada = false;
         try {
             conn = Conexion.getConexion();
             conn.setAutoCommit(false);
 
+            // 2. Validar existencia de cuenta dentro de la transacción
+            CuentaBancaria cuenta = cuentaDAO.buscarPorNumeroParaActualizar(cuentaNum, conn);
+            if (cuenta == null) {
+                logger.warn("Intento de depósito sobre cuenta inexistente: {}", cuentaNum);
+                throw new CuentaNoEncontradaException("No se encontró ninguna cuenta con el número: " + cuentaNum);
+            }
+
+            // 3. Validar cuenta activa
+            if (!"ACTIVA".equalsIgnoreCase(cuenta.getEstado())) {
+                logger.warn("Intento de depósito en cuenta no activa [cuenta={}, estado={}]",
+                        cuentaNum, cuenta.getEstado());
+                throw new CuentaInactivaException("La cuenta " + cuenta.getNumeroCuenta()
+                        + " no está activa (Estado: " + cuenta.getEstado() + ").");
+            }
+
+            // 4. Calcular nuevo saldo y ejecutar transacción
+            BigDecimal nuevoSaldo = cuenta.getSaldo().add(monto);
+            Movimiento mov = new Movimiento("DEPOSITO", monto, null, cuenta.getIdCuenta(), nuevoSaldo);
+
             cuentaDAO.actualizarSaldo(cuenta.getIdCuenta(), nuevoSaldo, conn);
             int idGenerado = movimientoDAO.insertar(mov, conn);
+            if (idGenerado <= 0) {
+                throw new SQLException("No se pudo registrar el movimiento del depósito.");
+            }
             mov.setId(idGenerado);
 
             conn.commit();
+            confirmada = true;
             logger.info("DEPÓSITO EXITOSO [idMov={}, cuenta={}, monto={}, saldoNuevo={}]",
-                    idGenerado, numeroCuenta, monto, nuevoSaldo);
+                    idGenerado, cuenta.getNumeroCuenta(), monto, nuevoSaldo);
             return mov;
 
         } catch (SQLException e) {
-            if (conn != null) {
-                try {
-                    conn.rollback();
-                } catch (SQLException ex) {
-                    logger.error("Error al ejecutar rollback en depósito: {}", ex.getMessage(), ex);
-                }
-            }
             logger.error("Error SQL al procesar depósito [cuenta={}, monto={}]: {}",
-                    numeroCuenta, monto, e.getMessage(), e);
+                    cuentaNum, monto, e.getMessage(), e);
             throw e;
         } finally {
             if (conn != null) {
+                if (!confirmada) {
+                    try {
+                        conn.rollback();
+                    } catch (SQLException ex) {
+                        logger.error("Error al ejecutar rollback en depósito: {}", ex.getMessage(), ex);
+                    }
+                }
                 try {
                     conn.setAutoCommit(true);
                     conn.close();
@@ -120,62 +139,81 @@ public class TransaccionService {
             throws MontoInvalidoException, CuentaNoEncontradaException, CuentaInactivaException,
             SaldoInsuficienteException, SQLException {
 
-        // 1. Validar monto > 0
+        // 1. Validar número de cuenta y monto (> 0 y máximo 2 decimales)
+        if (numeroCuenta == null || numeroCuenta.trim().isEmpty()) {
+            throw new CuentaNoEncontradaException("Debe ingresar un número de cuenta.");
+        }
+        String cuentaNum = numeroCuenta.trim();
+
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
-            logger.warn("Intento de retiro con monto inválido [cuenta={}, monto={}]", numeroCuenta, monto);
+            logger.warn("Intento de retiro con monto inválido [cuenta={}, monto={}]", cuentaNum, monto);
             throw new MontoInvalidoException("El monto a retirar debe ser mayor que cero ($0.00).");
         }
-
-        // 2. Validar existencia de cuenta
-        CuentaBancaria cuenta = buscarCuentaPorNumero(numeroCuenta);
-
-        // 3. Validar cuenta activa
-        if (!"ACTIVA".equalsIgnoreCase(cuenta.getEstado())) {
-            logger.warn("Intento de retiro en cuenta no activa [cuenta={}, estado={}]",
-                    numeroCuenta, cuenta.getEstado());
-            throw new CuentaInactivaException("La cuenta " + numeroCuenta + " no está activa (Estado: " + cuenta.getEstado() + ").");
+        if (monto.stripTrailingZeros().scale() > 2) {
+            logger.warn("Intento de retiro con más de dos decimales [cuenta={}, monto={}]", cuentaNum, monto);
+            throw new MontoInvalidoException("El monto no puede tener más de dos decimales.");
         }
-
-        // 4. Validar saldo suficiente
-        if (cuenta.getSaldo().compareTo(monto) < 0) {
-            logger.warn("Retiro rechazado por saldo insuficiente [cuenta={}, saldoActual={}, montoSolicitado={}]",
-                    numeroCuenta, cuenta.getSaldo(), monto);
-            throw new SaldoInsuficienteException(
-                    String.format("Saldo insuficiente. Saldo disponible: $%.2f | Monto solicitado: $%.2f",
-                            cuenta.getSaldo(), monto));
-        }
-
-        // 5. Calcular nuevo saldo y ejecutar transacción
-        BigDecimal nuevoSaldo = cuenta.getSaldo().subtract(monto);
-        Movimiento mov = new Movimiento("RETIRO", monto, cuenta.getIdCuenta(), null, nuevoSaldo);
 
         Connection conn = null;
+        boolean confirmada = false;
         try {
             conn = Conexion.getConexion();
             conn.setAutoCommit(false);
 
+            // 2. Validar existencia de cuenta dentro de la transacción
+            CuentaBancaria cuenta = cuentaDAO.buscarPorNumeroParaActualizar(cuentaNum, conn);
+            if (cuenta == null) {
+                logger.warn("Intento de retiro sobre cuenta inexistente: {}", cuentaNum);
+                throw new CuentaNoEncontradaException("No se encontró ninguna cuenta con el número: " + cuentaNum);
+            }
+
+            // 3. Validar cuenta activa
+            if (!"ACTIVA".equalsIgnoreCase(cuenta.getEstado())) {
+                logger.warn("Intento de retiro en cuenta no activa [cuenta={}, estado={}]",
+                        cuentaNum, cuenta.getEstado());
+                throw new CuentaInactivaException("La cuenta " + cuenta.getNumeroCuenta()
+                        + " no está activa (Estado: " + cuenta.getEstado() + ").");
+            }
+
+            // 4. Validar saldo suficiente
+            if (cuenta.getSaldo().compareTo(monto) < 0) {
+                logger.warn("Retiro rechazado por saldo insuficiente [cuenta={}, saldoActual={}, montoSolicitado={}]",
+                        cuentaNum, cuenta.getSaldo(), monto);
+                throw new SaldoInsuficienteException(
+                        String.format("Saldo insuficiente. Saldo disponible: $%.2f | Monto solicitado: $%.2f",
+                                cuenta.getSaldo(), monto));
+            }
+
+            // 5. Calcular nuevo saldo y ejecutar transacción
+            BigDecimal nuevoSaldo = cuenta.getSaldo().subtract(monto);
+            Movimiento mov = new Movimiento("RETIRO", monto, cuenta.getIdCuenta(), null, nuevoSaldo);
+
             cuentaDAO.actualizarSaldo(cuenta.getIdCuenta(), nuevoSaldo, conn);
             int idGenerado = movimientoDAO.insertar(mov, conn);
+            if (idGenerado <= 0) {
+                throw new SQLException("No se pudo registrar el movimiento del retiro.");
+            }
             mov.setId(idGenerado);
 
             conn.commit();
+            confirmada = true;
             logger.info("RETIRO EXITOSO [idMov={}, cuenta={}, monto={}, saldoNuevo={}]",
-                    idGenerado, numeroCuenta, monto, nuevoSaldo);
+                    idGenerado, cuenta.getNumeroCuenta(), monto, nuevoSaldo);
             return mov;
 
         } catch (SQLException e) {
-            if (conn != null) {
-                try {
-                    conn.rollback();
-                } catch (SQLException ex) {
-                    logger.error("Error al ejecutar rollback en retiro: {}", ex.getMessage(), ex);
-                }
-            }
             logger.error("Error SQL al procesar retiro [cuenta={}, monto={}]: {}",
-                    numeroCuenta, monto, e.getMessage(), e);
+                    cuentaNum, monto, e.getMessage(), e);
             throw e;
         } finally {
             if (conn != null) {
+                if (!confirmada) {
+                    try {
+                        conn.rollback();
+                    } catch (SQLException ex) {
+                        logger.error("Error al ejecutar rollback en retiro: {}", ex.getMessage(), ex);
+                    }
+                }
                 try {
                     conn.setAutoCommit(true);
                     conn.close();

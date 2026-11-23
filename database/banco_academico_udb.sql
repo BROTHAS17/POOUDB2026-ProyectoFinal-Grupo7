@@ -93,6 +93,24 @@ ON DUPLICATE KEY UPDATE numero_cuenta = numero_cuenta;
 
 -- Movimientos iniciales de prueba
 INSERT INTO movimientos (tipo, monto, fecha, cuenta_origen_id, cuenta_destino_id, saldo_resultante)
+SELECT 'DEPOSITO', 350.00, DATE_SUB(NOW(), INTERVAL 3 DAY), NULL, c.id_cuenta, 350.00
+FROM cuentas c
+WHERE c.numero_cuenta = 'CTA-PRB-03'
+  AND NOT EXISTS (
+      SELECT 1 FROM movimientos m
+      WHERE m.tipo = 'DEPOSITO' AND m.cuenta_destino_id = c.id_cuenta AND m.monto = 350.00
+  );
+
+INSERT INTO movimientos (tipo, monto, fecha, cuenta_origen_id, cuenta_destino_id, saldo_resultante)
+SELECT 'DEPOSITO', 600.00, DATE_SUB(NOW(), INTERVAL 3 DAY), NULL, c.id_cuenta, 600.00
+FROM cuentas c
+WHERE c.numero_cuenta = 'CTA-PRB-04'
+  AND NOT EXISTS (
+      SELECT 1 FROM movimientos m
+      WHERE m.tipo = 'DEPOSITO' AND m.cuenta_destino_id = c.id_cuenta AND m.monto = 600.00
+  );
+
+INSERT INTO movimientos (tipo, monto, fecha, cuenta_origen_id, cuenta_destino_id, saldo_resultante)
 SELECT 'DEPOSITO', 1500.00, DATE_SUB(NOW(), INTERVAL 2 DAY), NULL, c.id_cuenta, 1500.00
 FROM cuentas c
 WHERE c.numero_cuenta = 'CTA-PRB-01'
