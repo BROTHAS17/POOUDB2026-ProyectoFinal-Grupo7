@@ -72,6 +72,35 @@ public class CuentaDAO {
         return false;
     }
 
+    /**
+     * busca la cuenta NUMEROCUENTA dentro de la transacción abierta en CONN y bloquea su fila
+     * con select for update hasta el commit o el rollback, así el saldo y el estado
+     * que se validan son los mismos que se van a modificar,
+     * devuelve null si la cuenta no existe y deja vacío el nombre del cliente
+     */
+    public CuentaBancaria buscarPorNumeroParaActualizar(String numeroCuenta, Connection conn) throws SQLException {
+        String sql = "SELECT id_cuenta, numero_cuenta, tipo_cuenta, fecha_apertura, saldo, estado, id_cliente "
+                + "FROM cuentas WHERE numero_cuenta = ? FOR UPDATE";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, numeroCuenta.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new CuentaBancaria(
+                            rs.getInt("id_cuenta"),
+                            rs.getString("numero_cuenta"),
+                            rs.getString("tipo_cuenta"),
+                            rs.getDate("fecha_apertura"),
+                            rs.getBigDecimal("saldo"),
+                            rs.getString("estado"),
+                            rs.getInt("id_cliente"),
+                            null
+                    );
+                }
+            }
+        }
+        return null;
+    }
+
     public boolean actualizarSaldo(int idCuenta, BigDecimal nuevoSaldo) throws SQLException {
         try (Connection conn = Conexion.getConexion()) {
             return actualizarSaldo(idCuenta, nuevoSaldo, conn);
